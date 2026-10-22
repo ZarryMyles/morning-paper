@@ -79,14 +79,25 @@ restore_home() {
 
 # Run a test in the background so the library can close first, then hold the
 # result on screen and restore the home screen. HOLD overrides HOLD_SECONDS.
+#
+# "Last one wins": each run stamps its ID into RUN_FILE. When a hold ends, the
+# home screen is restored only if no newer run has started since; otherwise an
+# old test's timer would wipe whatever is on screen now (e.g. the paper).
+RUN_FILE="/tmp/morningpaper.run"
 run_test() {
     hold="${HOLD:-$HOLD_SECONDS}"
+    run_id="$$-$(date +%s)"
+    echo "$run_id" > "$RUN_FILE"
     (
         sleep 2
         "$@"
-        log "drawn; holding ${hold}s"
+        log "drawn; holding ${hold}s (run $run_id)"
         sleep "$hold"
-        log "hold over; restoring home screen"
-        restore_home
+        if [ "$(cat "$RUN_FILE" 2>/dev/null)" = "$run_id" ]; then
+            log "hold over; restoring home screen (run $run_id)"
+            restore_home
+        else
+            log "hold over; a newer screen is up, leaving it (run $run_id)"
+        fi
     ) >> "$LOG" 2>&1 &
 }
