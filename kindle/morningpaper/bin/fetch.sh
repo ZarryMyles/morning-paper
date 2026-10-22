@@ -68,4 +68,5 @@ fetch() {
     return 1
 }
 
-run_test fetch
+# The paper stays up much longer than a test.
+HOLD="$PAPER_HOLD_SECONDS" run_test fetch

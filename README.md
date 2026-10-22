@@ -8,7 +8,7 @@ Inspired by Karen X. Cheng's newspaper bot.
 ┌─────────────────────────┐   ┌────────────────────┐   ┌──────────────────────────┐
 │ generator/render.py     │──▶│ "paper" branch     │◀──│ fetch.sh downloads and   │
 │ renders today.png       │   │ today.png (1 commit│   │ draws it with FBInk/eips │
-│ (1264×1680, grayscale)  │   │ force-pushed daily)│   │                          │
+│ (1272×1696, grayscale)  │   │ force-pushed daily)│   │                          │
 └─────────────────────────┘   └────────────────────┘   └──────────────────────────┘
 ```
 

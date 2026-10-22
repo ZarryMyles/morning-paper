@@ -5,6 +5,7 @@
 EXT_DIR="/mnt/us/morningpaper"
 LOG="$EXT_DIR/log.txt"
 HOLD_SECONDS=30
+PAPER_HOLD_SECONDS=1800
 # shellcheck disable=SC2034  # used by net_test.sh after sourcing
 IMAGE_URL=""
 # shellcheck disable=SC2034  # used by fetch.sh after sourcing
@@ -17,6 +18,7 @@ GITHUB_REPO="$(printf '%s' "$GITHUB_REPO" | tr -d '\r')"
 GITHUB_TOKEN="$(printf '%s' "$GITHUB_TOKEN" | tr -d '\r')"
 IMAGE_URL="$(printf '%s' "$IMAGE_URL" | tr -d '\r')"
 HOLD_SECONDS="$(printf '%s' "$HOLD_SECONDS" | tr -d '\r')"
+PAPER_HOLD_SECONDS="$(printf '%s' "$PAPER_HOLD_SECONDS" | tr -d '\r')"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 
@@ -63,7 +65,7 @@ draw_line() {
 
 draw_image() {
     if [ -n "$FBINK" ]; then
-        "$FBINK" -q -c -f -g file="$1"
+        "$FBINK" -q -c -f -g file="$1",halign=CENTER,valign=CENTER
     else
         eips -f -g "$1"
     fi
@@ -75,13 +77,16 @@ restore_home() {
         || clear_screen
 }
 
-# Run a test in the background so KUAL can close its menu first,
-# then hold the result on screen and restore the home screen.
+# Run a test in the background so the library can close first, then hold the
+# result on screen and restore the home screen. HOLD overrides HOLD_SECONDS.
 run_test() {
+    hold="${HOLD:-$HOLD_SECONDS}"
     (
         sleep 2
         "$@"
-        sleep "$HOLD_SECONDS"
+        log "drawn; holding ${hold}s"
+        sleep "$hold"
+        log "hold over; restoring home screen"
         restore_home
     ) >> "$LOG" 2>&1 &
 }

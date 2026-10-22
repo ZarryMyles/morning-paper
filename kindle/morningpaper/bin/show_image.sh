@@ -8,9 +8,11 @@ show_image() {
     img="$EXT_DIR/images/test_${res}.png"
     # Some firmware reports the panel in landscape; try the swapped size.
     [ -f "$img" ] || img="$EXT_DIR/images/test_${h}x${w}.png"
+    # Still nothing? Use any test page; draw_image centers it.
+    [ -f "$img" ] || img="$(ls "$EXT_DIR"/images/test_*.png 2>/dev/null | head -n 1)"
     log "show_image: screen=$res image=$img"
 
-    if [ -f "$img" ]; then
+    if [ -n "$img" ] && [ -f "$img" ]; then
         clear_screen
         draw_image "$img" || log "show_image: draw failed"
     else

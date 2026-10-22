@@ -168,7 +168,7 @@ def render(w, h, now, test=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="out")
-    ap.add_argument("--size", default="1264x1680", help="WIDTHxHEIGHT (Paperwhite 12th gen default)")
+    ap.add_argument("--size", default="1272x1696", help="WIDTHxHEIGHT (Paperwhite 12th gen framebuffer)")
     ap.add_argument("--test", action="store_true", help="render the static test page")
     args = ap.parse_args()
     w, h = map(int, args.size.lower().split("x"))
