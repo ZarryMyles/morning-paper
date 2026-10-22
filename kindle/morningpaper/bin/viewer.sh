@@ -45,7 +45,7 @@ cleanup() {
 view() {
     total="$(ls "$PAGES"/page_*.png 2>/dev/null | wc -l | tr -d ' ')"
     if [ "${total:-0}" -eq 0 ]; then
-        clear_screen; draw_line 4 "No paper downloaded yet."; draw_line 6 "Tap 'Fetch today's paper' first."
+        clear_screen; draw_line 4 "No paper downloaded yet."; draw_line 6 "Tap 'The Myles Times' while online."
         sleep 8; restore_home; return 1
     fi
 

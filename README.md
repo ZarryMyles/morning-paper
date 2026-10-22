@@ -1,4 +1,4 @@
-# The Mahanth Times 🗞️
+# The Myles Times 🗞️
 
 A personal morning newspaper, printed on a jailbroken Kindle Paperwhite instead of paper.
 Inspired by Karen X. Cheng's newspaper bot.
@@ -6,9 +6,9 @@ Inspired by Karen X. Cheng's newspaper bot.
 ```
  GitHub Actions (04:53 IST)          GitHub                       Kindle
 ┌─────────────────────────┐   ┌────────────────────┐   ┌──────────────────────────┐
-│ generator/render.py     │──▶│ "paper" branch     │◀──│ fetch.sh downloads and   │
-│ renders today.png       │   │ today.png (1 commit│   │ draws it with FBInk/eips │
-│ (1272×1696, grayscale)  │   │ force-pushed daily)│   │                          │
+│ generator/paper.py      │──▶│ "paper" branch     │◀──│ fetch.sh downloads it,   │
+│ renders 11 pages + PDF  │   │ one commit,        │   │ viewer.sh draws pages    │
+│ (1272×1696, grayscale)  │   │ force-pushed daily │   │ pixel-for-pixel (FBInk)  │
 └─────────────────────────┘   └────────────────────┘   └──────────────────────────┘
 ```
 
@@ -16,10 +16,11 @@ Inspired by Karen X. Cheng's newspaper bot.
 
 | Path | What it is |
 |---|---|
-| `generator/` | Python renderer + bundled fonts (Lora, Inter, DejaVu, all open licenses) |
+| `generator/` | Python renderer + bundled fonts: Chomsky (masthead), Old Standard (headlines), Libre Caslon (body), Libre Franklin (labels); all SIL OFL, licenses in `generator/fonts/licenses/` |
 | `.github/workflows/paper.yml` | Daily cron, manual button, and auto-run on generator changes |
 | `kindle/morningpaper/` | Engine that lives at the Kindle's root (`/mnt/us/morningpaper`) |
-| `kindle/documents/` | Scriptlets: they appear as "books" in the Kindle library |
+| `kindle/documents/` | The launcher scriptlet: appears as a "book" in the Kindle library |
+| `kindle/src/` | Source for `tapread`, the touchscreen helper |
 
 ## Render locally
 
@@ -27,27 +28,18 @@ Inspired by Karen X. Cheng's newspaper bot.
 pip install -r generator/requirements.txt
 python generator/paper.py --out out --fixtures  # full edition from sample data (no network)
 python generator/paper.py --out out             # full edition, live data
-python generator/render.py --out out --test     # calibration test page
 ```
 
 ## Install on the Kindle (Paperwhite 12th gen, scriptlet jailbreak)
 
 1. Plug the Kindle in over USB.
 2. Copy `kindle/morningpaper/` to the **root** of the Kindle drive.
-3. Copy `kindle/documents/*.sh` into the Kindle's **documents** folder.
+3. Copy `kindle/documents/the_myles_times.sh` into the Kindle's **documents** folder.
 4. **Private repo only:** create `morningpaper/paper.local.conf` on the Kindle with
    `GITHUB_TOKEN=github_pat_…` (fine-grained token: this repo only, *Contents: Read-only*).
-5. Eject, then tap the **Morning Paper** books in your library:
-
-| Scriptlet | Does |
-|---|---|
-| 1 – Device info | Writes `info.txt` (screen, firmware, tools) |
-| 2 – Show test text | Draws `message.txt` |
-| 3 – Show front page | Draws the bundled calibration page |
-| 4 – Network test | Writes `net.txt` (HTTP/HTTPS checks) |
-| 5 – Fetch & read today's paper | Downloads the edition and opens the page viewer (also saves a PDF copy to your library) |
-| 6 – Touch probe | Records touchscreen info into `probe.txt` (diagnostics) |
-| 7 – Read the paper (offline) | Re-opens the last downloaded edition in the viewer |
+5. Eject, then tap **The Myles Times** in your library. It downloads today's edition and
+   opens it; offline, it opens the last edition you downloaded. A PDF copy is also saved
+   to your library.
 
 ### Reading
 Tap the right side (or swipe left) for the next page, tap the left 30% (or swipe right) to go back.

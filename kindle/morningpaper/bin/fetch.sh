@@ -1,5 +1,5 @@
 #!/bin/sh
-# Download today's paper from GitHub:
+# Download today's edition from GitHub, then open the viewer:
 #   today.pdf -> documents/ (opens like a book; swipe to turn pages)
 #   pages/*.png -> drawn pixel-for-pixel by the page viewer (viewer.sh)
 #   public repo:  raw.githubusercontent.com (no login)
@@ -104,8 +104,9 @@ fetch() {
 save_pdf() {
     pdf_tmp="/tmp/morningpaper_pdf"     # its own file: runs alongside the viewer
     if fetch_file today.pdf "$pdf_tmp" && is_pdf "$pdf_tmp"; then
-        name="The Mahanth Times - $(date +%Y-%m-%d).pdf"
-        for old in "$DOCS"/"The Mahanth Times - "*.pdf; do   # keep only today's
+        name="The Myles Times - $(date +%Y-%m-%d).pdf"
+        # Keep only today's edition (also clears editions from before the rename).
+        for old in "$DOCS"/"The Myles Times - "*.pdf "$DOCS"/"The Mahanth Times - "*.pdf; do
             [ -f "$old" ] && [ "$old" != "$DOCS/$name" ] && rm -f "$old"
         done
         mv -f "$pdf_tmp" "$DOCS/$name"

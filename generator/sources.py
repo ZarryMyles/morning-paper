@@ -1,4 +1,4 @@
-"""Data sources for The Mahanth Times. All free, no API keys.
+"""Data sources for The Myles Times. All free, no API keys.
 
 Each fetch_* function returns plain data (dicts/lists) and may raise; the
 caller wraps every source so one dead feed never stops the presses.
@@ -14,7 +14,7 @@ import requests
 
 IST = timezone(timedelta(hours=5, minutes=30))
 LAT, LON = 13.0547, 77.6339          # Thanisandra, Bengaluru
-UA = {"User-Agent": "MahanthTimes/1.0 (personal e-ink newspaper; github.com/ZarryMyles/morning-paper)"}
+UA = {"User-Agent": "MylesTimes/1.0 (personal e-ink newspaper; github.com/ZarryMyles/morning-paper)"}
 TIMEOUT = 20
 
 
@@ -38,6 +38,7 @@ def drawable(text):
 def clean(text, limit=None):
     """Strip HTML tags/entities, undrawable characters, and squeeze whitespace."""
     text = html.unescape(re.sub(r"<[^>]+>", " ", text or ""))
+    text = text.replace("₹", "Rs ")  # no bundled font has the rupee sign
     text = drawable(re.sub(r"\s+", " ", text))
     text = re.sub(r"\s+([.,;:!?)])", r"\1", text).strip()   # "War I ." -> "War I."
     if limit and len(text) > limit:
