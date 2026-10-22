@@ -6,6 +6,8 @@ EXT_DIR="/mnt/us/morningpaper"
 LOG="$EXT_DIR/log.txt"
 HOLD_SECONDS=30
 PAPER_HOLD_SECONDS=1800
+VIEWER_IDLE_SECONDS=600
+TOUCH_DEV=""
 # shellcheck disable=SC2034  # used by net_test.sh after sourcing
 IMAGE_URL=""
 # shellcheck disable=SC2034  # used by fetch.sh after sourcing
@@ -19,6 +21,8 @@ GITHUB_TOKEN="$(printf '%s' "$GITHUB_TOKEN" | tr -d '\r')"
 IMAGE_URL="$(printf '%s' "$IMAGE_URL" | tr -d '\r')"
 HOLD_SECONDS="$(printf '%s' "$HOLD_SECONDS" | tr -d '\r')"
 PAPER_HOLD_SECONDS="$(printf '%s' "$PAPER_HOLD_SECONDS" | tr -d '\r')"
+VIEWER_IDLE_SECONDS="$(printf '%s' "$VIEWER_IDLE_SECONDS" | tr -d '\r')"
+TOUCH_DEV="$(printf '%s' "$TOUCH_DEV" | tr -d '\r')"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 

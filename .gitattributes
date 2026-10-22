@@ -11,3 +11,6 @@
 *.png   binary
 *.ttf   binary
 *.otf   binary
+
+# Prebuilt ARM helper for the Kindle
+kindle/morningpaper/bin/tapread binary

@@ -25,10 +25,21 @@ def get_json(url, **kw):
     return r.json()
 
 
+# Characters our bundled fonts can draw: Latin, Greek, Cyrillic, general
+# punctuation, super/subscripts and currency. Anything else (CJK, emoji...)
+# would print as empty boxes on the page.
+_DRAWABLE = re.compile(r"[^\u0000-\u052F\u1E00-\u1EFF\u2000-\u206F\u2070-\u20CF\u2100-\u214F]+")
+
+
+def drawable(text):
+    return re.sub(r"\s+", " ", _DRAWABLE.sub(" ", text or "")).strip(" -–—|:·")
+
+
 def clean(text, limit=None):
-    """Strip HTML tags/entities and squeeze whitespace."""
+    """Strip HTML tags/entities, undrawable characters, and squeeze whitespace."""
     text = html.unescape(re.sub(r"<[^>]+>", " ", text or ""))
-    text = re.sub(r"\s+", " ", text).strip()
+    text = drawable(re.sub(r"\s+", " ", text))
+    text = re.sub(r"\s+([.,;:!?)])", r"\1", text).strip()   # "War I ." -> "War I."
     if limit and len(text) > limit:
         text = text[: limit - 1].rsplit(" ", 1)[0] + "…"
     return text
@@ -158,8 +169,14 @@ def fetch_feeds(feeds, max_age_days=None):
                 t = entry_time(e)
                 if max_age_days and t and now - t > timedelta(days=max_age_days):
                     continue
+                summary = clean(e.get("summary") or e.get("description"))
+                # Cooperpress newsletters open with "#807 — October 20, 2026 Read on the Web <Name>"
+                summary = re.sub(r"^#\d+\s*[—–-]\s*\w+ \d{1,2}, \d{4}\s*", "", summary)
+                summary = re.sub(r"^(Read on the Web\s*)?(JavaScript|Node|Frontend|React) Weekly\s*", "", summary)
+                if len(summary) > 220:
+                    summary = summary[:219].rsplit(" ", 1)[0] + "…"
                 items.append({"title": clean(e.get("title"), 140),
-                              "summary": clean(e.get("summary") or e.get("description"), 220),
+                              "summary": summary,
                               "date": t.astimezone(IST).strftime("%d %b") if t else ""})
                 if len(items) >= n:
                     break
@@ -180,7 +197,13 @@ def fetch_github_rising(n=8):
         headers["Authorization"] = f"Bearer {os.environ['GITHUB_TOKEN']}"
     d = get_json("https://api.github.com/search/repositories", headers=headers,
                  params={"q": f"created:>{since}", "sort": "stars", "order": "desc", "per_page": n})
-    return [{"name": r["full_name"], "desc": clean(r.get("description"), 150) or "No description.",
+    def desc(raw):
+        if not raw:
+            return "No description."
+        text = clean(raw, 150)
+        return text if len(re.sub(r"[^A-Za-z]", "", text)) >= 8 else "(Description not in English.)"
+
+    return [{"name": r["full_name"], "desc": desc(r.get("description")),
              "lang": r.get("language") or "—", "stars": r["stargazers_count"]} for r in d["items"]]
 
 
@@ -210,8 +233,9 @@ def fetch_word():
         else clean(e.title.split(":")[-1])
     pos_m = re.search(r"<i>(noun|verb|adjective|adverb|interjection|preposition|pronoun|conjunction|phrase|proper noun)[^<]*</i>",
                       body, re.I)
-    defs = [clean(li, 300) for li in re.findall(r"<li>(.*?)</li>", body, re.S)]
-    defs = [x for x in defs if len(x) > 3][:4]
+    junk = re.compile(r"word of the day|nominate|archive|suggest|wiktionary|feedback", re.I)
+    defs = [clean(li, 300) for li in re.findall(r"<li[^>]*>(.*?)</li>", body, re.S)]
+    defs = [x for x in defs if len(x) > 3 and not junk.search(x)][:4]
     return {"word": word, "pos": pos_m.group(1).lower() if pos_m else "",
             "definitions": defs or [clean(body, 400)]}
 

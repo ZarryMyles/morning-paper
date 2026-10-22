@@ -45,8 +45,24 @@ python generator/render.py --out out --test     # calibration test page
 | 2 – Show test text | Draws `message.txt` |
 | 3 – Show front page | Draws the bundled calibration page |
 | 4 – Network test | Writes `net.txt` (HTTP/HTTPS checks) |
-| 5 – Fetch today's paper | Saves today's PDF edition to your library and shows the cover |
-| 6 – Touch probe | Records touchscreen info into `probe.txt` (for the tap-to-turn viewer) |
+| 5 – Fetch & read today's paper | Downloads the edition and opens the page viewer (also saves a PDF copy to your library) |
+| 6 – Touch probe | Records touchscreen info into `probe.txt` (diagnostics) |
+| 7 – Read the paper (offline) | Re-opens the last downloaded edition in the viewer |
+
+### Reading
+Tap the right side (or swipe left) for the next page, tap the left 30% (or swipe right) to go back.
+Tap on the last page to close; press and hold anywhere to close early. The viewer also closes after
+10 idle minutes or when you press the power button.
+
+Pages are drawn pixel-for-pixel by FBInk, so they're sharper than the PDF in the Kindle reader.
+Touches come from `bin/tapread`, a tiny static ARM program ([source](kindle/src/tapread.c)) that
+claims the touchscreen while the paper is open so taps don't reach the home screen underneath.
+The kernel releases that claim automatically if it ever exits. Rebuild it with:
+
+```bash
+pip install ziglang
+python -m ziglang cc -target arm-linux-musleabihf -static -Os -s -o kindle/morningpaper/bin/tapread kindle/src/tapread.c
+```
 
 Logs go to `morningpaper/log.txt`.
 
@@ -54,4 +70,5 @@ Logs go to `morningpaper/log.txt`.
 
 - [x] Step 1: Kindle can draw an image, and fetch one from GitHub
 - [x] Step 2: 11-page edition — weather, air quality, news, Hacker News, frontend, GitHub, on this day, word, quote, xkcd
-- [ ] Step 3: real front page and automatic morning refresh on the Kindle
+- [x] Step 2½: pixel-perfect tap-to-turn viewer
+- [ ] Step 3: automatic morning download + the cover as the sleep screen

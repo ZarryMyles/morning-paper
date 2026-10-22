@@ -144,7 +144,10 @@ def footer(p, n, total):
     y = H - 84
     p.rule(y, 2)
     if n == total:
-        p.centered(y + 22, "— End of today's paper —", italic(26))
+        p.centered(y + 22, "— That's today's paper. Tap once more to close. —", italic(26))
+    elif n == 1:
+        p.centered(y + 22, "Tap right for the next page  ·  tap left to go back  ·  press and hold to close",
+                   sans(21), SOFT)
     else:
         p.centered(y + 22, f"— {n} of {total} —", sans(22), SOFT)
 
@@ -265,11 +268,11 @@ def page_weather(p, now, w):
         p.text((cx, cy + 26), v, sans(28), BLACK)
     y += 270
 
-    # Tip line
+    # Tip line (advice that doesn't contradict itself on a stormy day)
     tips = []
     if w["rain"] >= 40:
         tips.append("carry an umbrella")
-    if w["uv"] >= 6:
+    if w["uv"] >= 7 and w["rain"] < 60:
         tips.append("sunscreen if you're out midday")
     if w["max"] >= 32:
         tips.append("stay hydrated")
@@ -280,41 +283,47 @@ def page_weather(p, now, w):
     p.rule(y, 2)
     y += 30
 
-    # Hourly chart: temperature line + rain-chance bars
+    # Hourly: temperature line on top, rain chance in its own strip below,
+    # so a 100%-rain day can't bury the temperature curve.
     p.text((p.m, y), "HOUR BY HOUR", sans_b(20), SOFT)
-    p.right(y, "line: temperature   bars: chance of rain", sans(18), SOFT)
     y += 40
     hrs = w["hourly"]
     if hrs:
-        cx0, cx1 = p.m + 70, W - p.m - 10
-        ch = 330
-        top, base = y + 20, y + 20 + ch
+        cx0, cx1 = p.m + 70, W - p.m - 28   # room for the last rain bar
+        ch = 200
+        base = y + 30 + ch
         temps = [h["temp"] for h in hrs]
         lo, hi = min(temps) - 1, max(temps) + 1
         step = (cx1 - cx0) / max(1, len(hrs) - 1)
-        for g in range(5):  # gridlines + temp labels
-            gyy = base - g * ch / 4
+        for g in range(3):  # gridlines + temp labels
+            gyy = base - g * ch / 2
             p.rule(int(gyy), 1, cx0, cx1, FAINT)
-            p.text((p.m, gyy - 12), f"{lo + g * (hi - lo) / 4:.0f}°", sans(18), SOFT)
-        bw = step * 0.55
-        for i, h in enumerate(hrs):  # rain bars (0-100% of chart height)
-            x = cx0 + i * step
-            bh = ch * (h["rain"] or 0) / 100
-            if bh > 0:
-                p.d.rectangle([x - bw / 2, base - bh, x + bw / 2, base], fill=LIGHT)
+            p.text((p.m, gyy - 12), f"{lo + g * (hi - lo) / 2:.0f}°", sans(18), SOFT)
         pts = [(cx0 + i * step, base - (h["temp"] - lo) / (hi - lo) * ch) for i, h in enumerate(hrs)]
         p.d.line(pts, fill=BLACK, width=5, joint="curve")
         for i, (x, yy) in enumerate(pts):
             if hrs[i]["hour"] % 3 == 0:
                 p.d.ellipse([x - 7, yy - 7, x + 7, yy + 7], fill=BLACK)
                 lbl = f"{hrs[i]['temp']:.0f}°"
-                p.text((x - p.tw(lbl, sans_b(20)) / 2, yy - 38), lbl, sans_b(20), BLACK)
-                hl = f"{hrs[i]['hour']:02d}:00"
-                p.text((x - p.tw(hl, sans(18)) / 2, base + 12), hl, sans(18), SOFT)
-                if hrs[i]["rain"] >= 20:
-                    rl = f"{hrs[i]['rain']}%"
-                    p.text((x - p.tw(rl, sans(16)) / 2, base - ch * hrs[i]["rain"] / 100 + 6), rl, sans(16), INK)
-        y = base + 60
+                p.text((x - p.tw(lbl, sans_b(20)) / 2, yy - 36), lbl, sans_b(20), BLACK)
+
+        # Rain strip
+        ry0 = base + 26
+        rh = 80
+        p.text((p.m, ry0 + rh / 2 - 12), "Rain", sans_b(18), SOFT)
+        bw = step * 0.6
+        for i, h in enumerate(hrs):
+            x = cx0 + i * step
+            r = h["rain"] or 0
+            p.d.rectangle([x - bw / 2, ry0, x + bw / 2, ry0 + rh], outline=FAINT)
+            if r:
+                p.d.rectangle([x - bw / 2, ry0 + rh * (1 - r / 100), x + bw / 2, ry0 + rh], fill=MID)
+            if h["hour"] % 3 == 0:
+                rl = f"{r}%"
+                p.text((x - p.tw(rl, sans(17)) / 2, ry0 + rh + 8), rl, sans(17), INK)
+                hl = f"{h['hour']:02d}:00"
+                p.text((x - p.tw(hl, sans(18)) / 2, ry0 + rh + 34), hl, sans(18), SOFT)
+        y = ry0 + rh + 76
     p.rule(y, 2)
     y += 30
 
