@@ -150,6 +150,19 @@ NEWS_FEEDS = [
 ]
 
 
+def strip_newsletter_header(text):
+    """Cooperpress newsletters (JavaScript Weekly & co.) open every summary with
+    "#807 — October 20, 2026 Read on the Web JavaScript Weekly". The exact
+    characters vary (non-breaking spaces etc.), so cut by landmark instead."""
+    m = re.search(r"Read on the Web", text[:120], re.I)
+    if m:
+        text = text[m.end():]
+    else:  # no landmark: drop a leading "#807 — <date>" however it's spaced
+        text = re.sub(r"^\W*#\s*\d+\W+[A-Za-z]+\W+\d{1,2}\W+\d{4}\W*", "", text)
+    text = re.sub(r"^\W*(JavaScript|Node|Frontend|React|Golang|Ruby|Postgres) Weekly\W*", "", text, flags=re.I)
+    return text.strip()
+
+
 def entry_time(e):
     for key in ("published_parsed", "updated_parsed"):
         if e.get(key):
@@ -171,9 +184,7 @@ def fetch_feeds(feeds, max_age_days=None):
                 if max_age_days and t and now - t > timedelta(days=max_age_days):
                     continue
                 summary = clean(e.get("summary") or e.get("description"))
-                # Cooperpress newsletters open with "#807 — October 20, 2026 Read on the Web <Name>"
-                summary = re.sub(r"^#\d+\s*[—–-]\s*\w+ \d{1,2}, \d{4}\s*", "", summary)
-                summary = re.sub(r"^(Read on the Web\s*)?(JavaScript|Node|Frontend|React) Weekly\s*", "", summary)
+                summary = strip_newsletter_header(summary)
                 if len(summary) > 220:
                     summary = summary[:219].rsplit(" ", 1)[0] + "…"
                 items.append({"title": clean(e.get("title"), 140),

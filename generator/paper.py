@@ -12,6 +12,7 @@ Libre Caslon Text (body), Libre Franklin (labels). All SIL Open Font License.
 import argparse
 import io
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -122,17 +123,46 @@ class Page:
         self.text((x1 - self.tw(text, font), y), text, font, fill)
 
     # --- text setting -------------------------------------------------------------
+    def _split_long(self, word, font, width):
+        """Break a word wider than the column (repo names, URLs): after / - _ .
+        first, mid-word only as a last resort. Returns the pieces."""
+        if self.tw(word, font) <= width:
+            return [word]
+        parts = [x for x in re.findall(r"[^/\-_.]*[/\-_.]?", word) if x]
+        pieces, cur = [], ""
+        for part in parts:
+            if self.tw(cur + part, font) <= width:
+                cur += part
+                continue
+            if cur:
+                pieces.append(cur)
+            cur = ""
+            for ch in part:                      # still too wide: split by characters
+                if self.tw(cur + ch, font) > width and cur:
+                    pieces.append(cur)
+                    cur = ""
+                cur += ch
+        if cur:
+            pieces.append(cur)
+        return pieces
+
     def wrap(self, text, font, width, first_width=None, first_lines=0):
-        """Greedy wrap; the first `first_lines` lines may be narrower (drop caps)."""
-        lines, line = [], ""
+        """Greedy wrap; the first `first_lines` lines may be narrower (drop caps).
+        Over-wide words are broken into pieces that join without a space."""
+        narrow = min(width, first_width or width)
+        tokens = []                              # (piece, space_before)
         for word in (text or "").split():
+            for i, piece in enumerate(self._split_long(word, font, narrow)):
+                tokens.append((piece, i == 0))
+        lines, line = [], ""
+        for piece, space in tokens:
             limit = first_width if (first_width and len(lines) < first_lines) else width
-            trial = f"{line} {word}".strip()
+            trial = line + (" " if space and line else "") + piece
             if self.tw(trial, font) <= limit or not line:
                 line = trial
             else:
                 lines.append(line)
-                line = word
+                line = piece
         if line:
             lines.append(line)
         return lines
