@@ -1,0 +1,9 @@
+out/
+__pycache__/
+*.pyc
+.venv/
+kindle/morningpaper/log.txt
+kindle/morningpaper/info.txt
+kindle/morningpaper/net.txt
+kindle/morningpaper/paper.local.conf
+/.kit.zip

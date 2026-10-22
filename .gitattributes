@@ -1,2 +1,13 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The Kindle runs Linux: shell scripts and configs MUST keep LF endings,
+# even when checked out on Windows (CRLF breaks "#!/bin/sh").
+*.sh    text eol=lf
+*.conf  text eol=lf
+*.txt   text eol=lf
+*.yml   text eol=lf
+
+*.png   binary
+*.ttf   binary
+*.otf   binary

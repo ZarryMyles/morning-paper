@@ -1,0 +1,56 @@
+# The newsroom: renders the front page every morning and publishes it.
+#
+# The PNG goes to a separate "paper" branch that is force-pushed each run,
+# so the image never piles up in main's history. The Kindle downloads:
+#   public repo:  https://raw.githubusercontent.com/<owner>/<repo>/paper/today.png
+#   private repo: https://api.github.com/repos/<owner>/<repo>/contents/today.png?ref=paper
+name: Print the paper
+
+on:
+  schedule:
+    # 23:23 UTC = 04:53 IST, so the paper is ready before you wake up.
+    # (Off the hour on purpose: GitHub's :00 slots are busiest and run late.)
+    - cron: "23 23 * * *"
+  workflow_dispatch: {}          # "Run workflow" button for manual editions
+  push:
+    branches: [main]
+    paths: ["generator/**", ".github/workflows/paper.yml"]
+
+permissions:
+  contents: write                # needed to push the paper branch
+
+concurrency:
+  group: paper
+  cancel-in-progress: true
+
+jobs:
+  print:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: generator/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r generator/requirements.txt
+
+      - name: Render today's paper
+        run: python generator/render.py --out out
+
+      - name: Publish to the paper branch
+        run: |
+          cd out
+          git init -q -b paper
+          git config user.name  "morning-paper-bot"
+          git config user.email "morning-paper-bot@users.noreply.github.com"
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > printed_at.txt
+          git add today.png printed_at.txt
+          git commit -q -m "Edition of $(TZ=Asia/Kolkata date +%F)"
+          git push -q --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            paper
+          echo "Published $(TZ=Asia/Kolkata date '+%d %b %Y %H:%M IST')" >> "$GITHUB_STEP_SUMMARY"

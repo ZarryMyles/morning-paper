@@ -1,0 +1,3 @@
+Good morning, Mahanth!
+This text came from message.txt.
+Edit it over USB and run the test again.
