@@ -25,8 +25,9 @@ Inspired by Karen X. Cheng's newspaper bot.
 
 ```bash
 pip install -r generator/requirements.txt
-python generator/render.py --out out          # out/today.png
-python generator/render.py --out out --test   # calibration test page
+python generator/paper.py --out out --fixtures  # full edition from sample data (no network)
+python generator/paper.py --out out             # full edition, live data
+python generator/render.py --out out --test     # calibration test page
 ```
 
 ## Install on the Kindle (Paperwhite 12th gen, scriptlet jailbreak)
@@ -44,12 +45,13 @@ python generator/render.py --out out --test   # calibration test page
 | 2 – Show test text | Draws `message.txt` |
 | 3 – Show front page | Draws the bundled calibration page |
 | 4 – Network test | Writes `net.txt` (HTTP/HTTPS checks) |
-| 5 – Fetch today's paper | Downloads today's edition from GitHub and draws it |
+| 5 – Fetch today's paper | Saves today's PDF edition to your library and shows the cover |
+| 6 – Touch probe | Records touchscreen info into `probe.txt` (for the tap-to-turn viewer) |
 
 Logs go to `morningpaper/log.txt`.
 
 ## Roadmap
 
 - [x] Step 1: Kindle can draw an image, and fetch one from GitHub
-- [ ] Step 2: pick data sources (calendar, inbox, weather, news…)
+- [x] Step 2: 11-page edition — weather, air quality, news, Hacker News, frontend, GitHub, on this day, word, quote, xkcd
 - [ ] Step 3: real front page and automatic morning refresh on the Kindle

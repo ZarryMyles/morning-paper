@@ -1,9 +1,10 @@
 # The newsroom: renders the front page every morning and publishes it.
 #
-# The PNG goes to a separate "paper" branch that is force-pushed each run,
-# so the image never piles up in main's history. The Kindle downloads:
-#   public repo:  https://raw.githubusercontent.com/<owner>/<repo>/paper/today.png
-#   private repo: https://api.github.com/repos/<owner>/<repo>/contents/today.png?ref=paper
+# The edition (today.pdf, today.png cover, pages/*.png, status.json) goes to a
+# separate "paper" branch that is force-pushed each run, so it never piles up
+# in main's history. The Kindle downloads:
+#   public repo:  https://raw.githubusercontent.com/<owner>/<repo>/paper/today.pdf
+#   private repo: https://api.github.com/repos/<owner>/<repo>/contents/today.pdf?ref=paper
 name: Print the paper
 
 on:
@@ -38,8 +39,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r generator/requirements.txt
 
-      - name: Render today's paper
-        run: python generator/render.py --out out
+      - name: Fetch the news and print every page
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # raises the GitHub search rate limit
+        run: |
+          python generator/paper.py --out out
+          cat out/status.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to the paper branch
         run: |
@@ -48,7 +53,7 @@ jobs:
           git config user.name  "morning-paper-bot"
           git config user.email "morning-paper-bot@users.noreply.github.com"
           date -u +"%Y-%m-%dT%H:%M:%SZ" > printed_at.txt
-          git add today.png printed_at.txt
+          git add -A
           git commit -q -m "Edition of $(TZ=Asia/Kolkata date +%F)"
           git push -q --force \
             "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
