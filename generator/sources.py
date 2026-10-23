@@ -278,6 +278,82 @@ def fetch_xkcd(now):
             "image": img, "label": label}
 
 
+# --- Wikipedia: featured article + picture of the day (one request) ------------------
+_feed_cache = {}
+
+
+def _featured_feed(now):
+    key = now.strftime("%Y/%m/%d")
+    if key not in _feed_cache:
+        _feed_cache[key] = get_json(f"https://api.wikimedia.org/feed/v1/wikipedia/en/featured/{key}")
+    return _feed_cache[key]
+
+
+def fetch_featured_article(now):
+    tfa = _featured_feed(now)["tfa"]
+    title = tfa["titles"]["normalized"]
+    # The feed's extract is a teaser; the article's lead section makes a real long read.
+    paras = []
+    try:
+        d = get_json("https://en.wikipedia.org/w/api.php", params={
+            "action": "query", "prop": "extracts", "exintro": 1, "explaintext": 1,
+            "titles": title, "format": "json", "formatversion": 2})
+        lead = d["query"]["pages"][0].get("extract", "")
+        paras = [clean(x) for x in lead.split("\n") if len(x.strip()) > 40]
+    except Exception as exc:  # noqa: BLE001
+        print(f"  lead section failed ({exc}); using the feed's summary")
+    if not paras:
+        paras = [clean(tfa.get("extract", ""))]
+    return {"title": title, "description": clean(tfa.get("description", "")), "paragraphs": paras[:8]}
+
+
+def fetch_picture(now):
+    pic = _featured_feed(now)["image"]
+    # Ask Commons for a ~1200px rendition rather than the (often huge) original.
+    thumb = pic["thumbnail"]["source"]
+    url = re.sub(r"/(\d+)px-", "/1200px-", thumb) if "/thumb/" in thumb else thumb
+    r = requests.get(url, headers=UA, timeout=TIMEOUT)
+    if not r.ok:
+        r = requests.get(thumb, headers=UA, timeout=TIMEOUT)
+    r.raise_for_status()
+    title = re.sub(r"^File:|\.[a-zA-Z]{3,4}$", "", pic.get("title", "")).replace("_", " ")
+    return {"image": r.content, "title": clean(title, 90),
+            "caption": clean((pic.get("description") or {}).get("text", ""), 420),
+            "artist": clean((pic.get("artist") or {}).get("text", ""), 80),
+            "license": (pic.get("license") or {}).get("type", "")}
+
+
+# --- Money: the rupee against major currencies (ECB reference rates, weekdays) -------
+CURRENCIES = [  # (code, name, units shown) -- all on the ECB's reference list
+    ("USD", "US dollar", 1), ("EUR", "Euro", 1), ("GBP", "British pound", 1),
+    ("JPY", "Japanese yen", 100), ("AUD", "Australian dollar", 1), ("CAD", "Canadian dollar", 1),
+    ("SGD", "Singapore dollar", 1), ("CHF", "Swiss franc", 1), ("CNY", "Chinese yuan", 1),
+    ("HKD", "Hong Kong dollar", 1),
+]
+
+
+def fetch_rupee(now):
+    """One request with the rupee as base: returns foreign-per-rupee, flipped to rupees-per-unit."""
+    start = (now - timedelta(days=16)).strftime("%Y-%m-%d")
+    symbols = ",".join(c for c, _, _ in CURRENCIES)
+    last_exc = None
+    for base in ("https://api.frankfurter.dev/v1", "https://api.frankfurter.app"):
+        try:
+            d = get_json(f"{base}/{start}..", params={"base": "INR", "symbols": symbols})
+            days = sorted(d["rates"].items())
+            out = []
+            for code, name, units in CURRENCIES:
+                series = [(day, units / v[code]) for day, v in days if v.get(code)]
+                if len(series) >= 2:
+                    out.append({"code": code, "name": name, "units": units, "series": series[-8:],
+                                "rate": series[-1][1], "prev": series[-2][1]})
+            if out:
+                return {"date": days[-1][0], "currencies": out}
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+    raise RuntimeError(f"no rupee rates ({last_exc})")
+
+
 SOURCES = {
     "weather": lambda now: fetch_weather(),
     "air": lambda now: fetch_air(),
@@ -289,6 +365,9 @@ SOURCES = {
     "quote": lambda now: fetch_quote(),
     "word": lambda now: fetch_word(),
     "comic": fetch_xkcd,
+    "article": fetch_featured_article,
+    "picture": fetch_picture,
+    "money": fetch_rupee,
 }
 
 

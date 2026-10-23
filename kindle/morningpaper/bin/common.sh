@@ -10,13 +10,15 @@ RUN_FILE="/tmp/morningpaper.run"
 # Defaults (paper.conf overrides; paper.local.conf holds the token, if any)
 HOLD_SECONDS=30
 VIEWER_IDLE_SECONDS=600
+WAKE_TIME="05:30"
+AUTO_FETCH=1
 TOUCH_DEV=""
 GITHUB_REPO=""
 GITHUB_TOKEN=""
 [ -f "$EXT_DIR/paper.conf" ] && . "$EXT_DIR/paper.conf"
 [ -f "$EXT_DIR/paper.local.conf" ] && . "$EXT_DIR/paper.local.conf"
 # Strip Windows line endings in case a config was edited in Notepad.
-for v in HOLD_SECONDS VIEWER_IDLE_SECONDS TOUCH_DEV GITHUB_REPO GITHUB_TOKEN; do
+for v in HOLD_SECONDS VIEWER_IDLE_SECONDS WAKE_TIME AUTO_FETCH TOUCH_DEV GITHUB_REPO GITHUB_TOKEN; do
     eval "$v=\"\$(printf '%s' \"\$$v\" | tr -d '\r')\""
 done
 
@@ -46,3 +48,24 @@ restore_home() {
     lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null \
         || clear_screen
 }
+
+# Date of the edition on the device (from the downloaded status.json), e.g. 2026-10-23
+edition_date() {
+    sed -n 's/.*"date": *"\([0-9-]*\)".*/\1/p' "$EXT_DIR/pages/status.json" 2>/dev/null | head -n 1
+}
+
+# Is the screen showing the sleep screen (or about to suspend)?
+in_screensaver() {
+    lipc-get-prop com.lab126.powerd status 2>/dev/null | grep -qE "Screen Saver|Ready"
+}
+
+# Draw today's front page full-screen (used as the sleep screen).
+draw_cover() {
+    img="$EXT_DIR/pages/page_01.png"
+    [ -s "$img" ] || return 1
+    if [ -n "$FBINK" ]; then "$FBINK" -q -f -g file="$img",halign=CENTER,valign=CENTER
+    else eips -f -g "$img"; fi
+}
+
+# Numbers like "05" or "09" without the leading zero (sh reads 09 as bad octal).
+num() { v="$(echo "$1" | sed 's/^0*//')"; echo "${v:-0}"; }

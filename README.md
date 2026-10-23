@@ -7,7 +7,7 @@ Inspired by Karen X. Cheng's newspaper bot.
  GitHub Actions (04:53 IST)          GitHub                       Kindle
 ┌─────────────────────────┐   ┌────────────────────┐   ┌──────────────────────────┐
 │ generator/paper.py      │──▶│ "paper" branch     │◀──│ fetch.sh downloads it,   │
-│ renders 11 pages + PDF  │   │ one commit,        │   │ viewer.sh draws pages    │
+│ renders 14 pages + PDF  │   │ one commit,        │   │ viewer.sh draws pages    │
 │ (1272×1696, grayscale)  │   │ force-pushed daily │   │ pixel-for-pixel (FBInk)  │
 └─────────────────────────┘   └────────────────────┘   └──────────────────────────┘
 ```
@@ -43,8 +43,21 @@ python generator/paper.py --out out             # full edition, live data
 
 ### Reading
 Tap the right side (or swipe left) for the next page, tap the left 30% (or swipe right) to go back.
+On the front page, tap an entry under **Inside** (or Rupee Watch) to jump straight to it.
 Tap on the last page to close; press and hold anywhere to close early. The viewer also closes after
 10 idle minutes or when you press the power button.
+
+### The morning paper
+Tapping the book also starts `bin/paperd.sh`, a small daemon that runs until the Kindle restarts:
+
+- When the Kindle goes to sleep, it draws today's front page over the sleep screen.
+- Before the Kindle suspends, it sets the real-time-clock alarm for `WAKE_TIME` (default 05:30).
+- When the alarm wakes the Kindle, it turns Wi-Fi on, downloads the new edition, draws its front
+  page, and turns Wi-Fi back off if it was off. If GitHub hasn't printed yet, it retries every
+  20 minutes, up to 3 times.
+
+Change `WAKE_TIME` or set `AUTO_FETCH=0` in `paper.conf`. After a restart, tap the book once to
+start the daemon again.
 
 Pages are drawn pixel-for-pixel by FBInk, so they're sharper than the PDF in the Kindle reader.
 Touches come from `bin/tapread`, a tiny static ARM program ([source](kindle/src/tapread.c)) that
@@ -61,6 +74,7 @@ Logs go to `morningpaper/log.txt`.
 ## Roadmap
 
 - [x] Step 1: Kindle can draw an image, and fetch one from GitHub
-- [x] Step 2: 11-page edition — weather, air quality, news, Hacker News, frontend, GitHub, on this day, word, quote, xkcd
+- [x] Step 2: 14-page edition — weather + almanac, air quality, news, the rupee, Hacker News, frontend, GitHub, featured article, halftone picture of the day, on this day, word, quote, xkcd
 - [x] Step 2½: pixel-perfect tap-to-turn viewer
-- [ ] Step 3: automatic morning download + the cover as the sleep screen
+- [x] Step 3: automatic morning download + the front page as the sleep screen
+- [x] Tap the index to jump to a page

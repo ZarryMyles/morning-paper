@@ -27,6 +27,59 @@ def _fake_comic():
     return buf.getvalue()
 
 
+def _fake_photo():
+    """A stand-in landscape with real tonal range, for judging the halftone."""
+    import math
+    import random
+    w, h = 1200, 800
+    im = Image.new("L", (w, h))
+    px = im.load()
+    rng = random.Random(7)
+    ridge1 = [430 + 60 * math.sin(x / 140) + 30 * math.sin(x / 47) for x in range(w)]
+    ridge2 = [520 + 40 * math.sin(x / 90 + 1) + 18 * math.sin(x / 31) for x in range(w)]
+    for y in range(h):
+        for x in range(w):
+            if y < 600:
+                v = 70 + 150 * (y / 600)                                  # sky: dark to light
+                d = math.hypot(x - 860, y - 300)
+                if d < 70:
+                    v = 250                                               # sun
+                elif d < 160:
+                    v = max(v, 250 - (d - 70) * 0.9)                       # glow
+                if y > ridge1[x]:
+                    v = 55 + (y - ridge1[x]) * 0.15                       # far mountains
+                if y > ridge2[x]:
+                    v = 25 + (y - ridge2[x]) * 0.05                       # near mountains
+            else:
+                ry = 1200 - y                                             # lake reflects the sky
+                v = px[x, max(0, min(599, ry))] * 0.7 + 20 * math.sin(y / 3)
+            px[x, y] = int(max(0, min(255, v + rng.uniform(-6, 6))))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=90)
+    return buf.getvalue()
+
+
+def _fake_rupee():
+    import random
+    rng = random.Random(3)
+    days = ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16",
+            "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22"]
+    base = [("USD", "US dollar", 1, 88.6), ("EUR", "Euro", 1, 103.2), ("GBP", "British pound", 1, 118.4),
+            ("JPY", "Japanese yen", 100, 58.9), ("AUD", "Australian dollar", 1, 57.8),
+            ("CAD", "Canadian dollar", 1, 63.4), ("SGD", "Singapore dollar", 1, 68.7),
+            ("CHF", "Swiss franc", 1, 110.9), ("CNY", "Chinese yuan", 1, 12.42),
+            ("HKD", "Hong Kong dollar", 1, 11.39)]
+    out = []
+    for code, name, units, v in base:
+        series, x = [], v
+        for d in days:
+            x *= 1 + rng.uniform(-0.004, 0.004)
+            series.append((d, round(x, 4)))
+        out.append({"code": code, "name": name, "units": units, "series": series,
+                    "rate": series[-1][1], "prev": series[-2][1]})
+    return {"date": days[-1], "currencies": out}
+
+
 def sample_data():
     hourly = [{"hour": h, "temp": t, "rain": r} for h, t, r in zip(
         range(6, 24),
@@ -153,6 +206,29 @@ def sample_data():
                      "(of a person or their writing) Given to using long words; long-winded, verbose.",
                      "(rare) Measuring a foot and a half in length.",
                  ]},
+        "article": {
+            "title": "Lalbagh Botanical Garden",
+            "description": "Botanical garden in Bengaluru, India",
+            "paragraphs": [
+                "Lalbagh Botanical Garden is a botanical garden in Bengaluru, India. First planned and laid out "
+                "in the 18th century, it has a glasshouse modelled on London's Crystal Palace, which hosts two "
+                "flower shows a year, and one of the largest collections of tropical plants on the subcontinent.",
+                "The garden was commissioned by Hyder Ali in 1760 and completed by his son Tipu Sultan, who added "
+                "plants from Kabul, Persia and France. Under British rule it became the Government Botanical "
+                "Garden in 1856, and successive superintendents introduced species from Kew and across the empire.",
+                "The garden sits on a rocky outcrop of Peninsular Gneiss, some three billion years old, which is "
+                "now a national geological monument. A watchtower built by Kempe Gowda in the 16th century stands "
+                "on the rock, one of four that marked the limits of the old city.",
+                "Today the garden covers about 240 acres and is home to more than a thousand species of flora. "
+                "Its lake, glasshouse and centuries-old trees draw early-morning walkers every day of the year, "
+                "and the Independence Day and Republic Day flower shows attract hundreds of thousands of visitors.",
+            ],
+        },
+        "picture": {"image": _fake_photo(), "title": "Sunrise over the Western Ghats",
+                    "caption": "Morning light over layered ridges of the Western Ghats, reflected in a reservoir. "
+                               "The range runs parallel to India's west coast for about 1,600 kilometres.",
+                    "artist": "Sample Photographer", "license": "CC BY-SA 4.0"},
+        "money": _fake_rupee(),
         "comic": {"num": 1234, "title": "Morning Routine", "label": "From the archive",
                   "alt": "I tried replacing my phone with a newspaper, but now I doomscroll the classifieds.",
                   "image": _fake_comic()},

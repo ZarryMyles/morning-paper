@@ -12,11 +12,12 @@ Libre Caslon Text (body), Libre Franklin (labels). All SIL Open Font License.
 import argparse
 import io
 import json
+import math
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from PIL import features as _pil_features
 
 # Libre Caslon puts historical long-s ligatures (ſt, ſp) in its default "liga"
@@ -82,6 +83,7 @@ class Page:
         self.m = 52
         self.cw = W - 2 * self.m
         self.bottom = H - 96
+        self.links = []                  # (x0, y0, x1, y1, target page) tap targets
 
     def tw(self, text, font):
         return self.d.textlength(text, font=font, features=FEAT)
@@ -199,6 +201,14 @@ class Page:
     def para_h(self, text, font, width, lead, max_lines=None):
         n = len(self.wrap(text, font, width))
         return (min(n, max_lines) if max_lines else n) * lead
+
+    def dropcap_h(self, text, font, width, lead, lines_tall=3):
+        if len(text) < 60:
+            return self.para_h(text, font, width, lead)
+        capf = head(int(lead * lines_tall * 0.95))
+        cap_w = self.tw(text[0], capf) + 10
+        lines = self.wrap(text[1:].lstrip(), font, width, first_width=width - cap_w, first_lines=lines_tall)
+        return max(len(lines), lines_tall) * lead
 
     def dropcap_para(self, x, y, text, font, width, lead, fill=INK, lines_tall=3):
         """A paragraph opening with a drop cap spanning `lines_tall` lines."""
@@ -459,6 +469,15 @@ def page_cover(p, now, data, contents):
         p.hline(sy + 8, 1, cx0, cx1, MID)
         sy += 30
 
+    money = data.get("money")
+    if money:
+        usd = next((c for c in money["currencies"] if c["code"] == "USD"), money["currencies"][0])
+        rupee_page = next((n for t, n in contents if t == "The Rupee"), None)
+        top = sy
+        sy = rupee_box(p, cx0, cx1, sy, usd, rupee_page)
+        if rupee_page:
+            p.links.append((cx0 - 8, top - 6, cx1 + 8, sy - 22, rupee_page))
+
     if q:
         p.tracked((cx0, sy), "QUOTATION OF THE DAY", label(15, 800), 1.6, BLACK)
         p.hline(sy + 24, 2, cx0, cx1)
@@ -488,6 +507,7 @@ def page_cover(p, now, data, contents):
             p.d.rectangle([dx, sy + 18, dx + 1, sy + 19], fill=MID)
             dx += 7
         p.text((nx, sy + 2), num, label(18, 700), BLACK)
+        p.links.append((cx0 - 8, sy - 3, cx1 + 8, sy + 28, page_no))
         sy += 31
 
     # Teasers for inner pages, while there's room
@@ -506,6 +526,8 @@ def page_cover(p, now, data, contents):
             break
         p.hline(sy + 10, 1, cx0, cx1, MID)
         sy += 30
+        if pg:
+            p.links.append((cx0 - 8, sy - 6, cx1 + 8, sy + need - 20, pg))
         p.tracked((cx0, sy), kick, label(15, 800), 1.6, BLACK)
         if pg:
             p.right(sy, f"A{pg}", label(15, 800), SOFT, cx1)
@@ -623,8 +645,8 @@ def page_weather(p, now, n, w):
     y += 34
     hrs = w["hourly"]
     if hrs:
-        cx0, cx1 = p.m + 64, W - p.m - 28
-        ch = 290
+        cx0, cx1 = p.m + 64, W - p.m - 28   # room for the last rain bar
+        ch = 220
         base = y + 30 + ch
         temps = [h["temp"] for h in hrs]
         lo, hi = min(temps) - 1, max(temps) + 1
@@ -640,7 +662,7 @@ def page_weather(p, now, n, w):
                 p.d.ellipse([x - 6, yy - 6, x + 6, yy + 6], fill=BLACK)
                 lbl = f"{hrs[i]['temp']:.0f}°"
                 p.text((x - p.tw(lbl, body(20, 700)) / 2, yy - 36), lbl, body(20, 700), BLACK)
-        ry0, rh = base + 26, 96
+        ry0, rh = base + 26, 80
         p.text((p.m, ry0 + rh / 2 - 12), "Rain", label(16, 600), SOFT)
         bw = step * 0.6
         for i, h in enumerate(hrs):
@@ -665,12 +687,14 @@ def page_weather(p, now, n, w):
     colw = (p.cw - 2 * 20) / 3
     for i, dday in enumerate(days):
         x = p.m + i * (colw + 20)
-        boxed(p, x, y, x + colw, y + 236)
+        boxed(p, x, y, x + colw, y + 190)
         dt = datetime.strptime(dday["date"], "%Y-%m-%d")
-        p.centered(y + 16, dt.strftime("%A"), head(34), BLACK, x, x + colw)
-        p.centered(y + 66, f"{dday['max']:.0f}° / {dday['min']:.0f}°", body(34, 600), BLACK, x, x + colw)
-        p.centered(y + 122, WMO.get(dday["code"], "—"), body_it(25), INK, x, x + colw)
-        p.centered(y + 176, f"Rain {dday['rain']}%", label(20, 600), SOFT, x, x + colw)
+        p.centered(y + 12, dt.strftime("%A"), head(32), BLACK, x, x + colw)
+        p.centered(y + 56, f"{dday['max']:.0f}° / {dday['min']:.0f}°", body(32, 600), BLACK, x, x + colw)
+        p.centered(y + 104, WMO.get(dday["code"], "—"), body_it(24), INK, x, x + colw)
+        p.centered(y + 146, f"Rain {dday['rain']}%", label(19, 600), SOFT, x, x + colw)
+    y += 190 + 26
+    almanac(p, now, w, y)
 
 
 def page_air(p, now, n, a):
@@ -836,14 +860,234 @@ def page_comic(p, now, n, c):
     p.centered(credit_y, "xkcd.com by Randall Munroe · CC BY-NC 2.5", body_it(19), SOFT)
 
 
+# ===== Money: sidebar box + The Rupee page ==========================================================
+def change_marker(p, x, y, up, size=14):
+    """A small up/down triangle (no font has a reliable arrow glyph)."""
+    if up:
+        p.d.polygon([(x, y + size + 2), (x + size, y + size + 2), (x + size / 2, y + 4)], fill=BLACK)
+    else:
+        p.d.polygon([(x, y + 5), (x + size, y + 5), (x + size / 2, y + size + 3)], fill=BLACK)
+
+
+def sparkline(p, x0, y0, x1, h, vals, width=3):
+    lo, hi = min(vals), max(vals)
+    span = (hi - lo) or 1
+    pts = [(x0 + i * (x1 - x0) / max(1, len(vals) - 1), y0 + h - (v - lo) / span * h) for i, v in enumerate(vals)]
+    p.hline(int(y0 + h), 1, x0, x1, FAINT)
+    p.d.line(pts, fill=BLACK, width=width, joint="curve")
+    for x, y in (pts[0], pts[-1]):
+        p.d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=BLACK)
+
+
+def rupee_box(p, cx0, cx1, sy, usd, page_no=None):
+    p.tracked((cx0, sy), "RUPEE WATCH", label(15, 800), 1.6, BLACK)
+    if page_no:
+        p.right(sy, f"A{page_no}", label(15, 800), SOFT, cx1)
+    p.hline(sy + 24, 2, cx0, cx1)
+    sy += 38
+    p.text((cx0, sy + 8), "US$1 =", body(22), SOFT)
+    p.right(sy - 4, f"Rs {usd['rate']:.2f}", head(38), BLACK, cx1)
+    sy += 48
+    diff = usd["rate"] - usd["prev"]
+    change_marker(p, cx0, sy, diff >= 0)
+    prev_day = datetime.strptime(usd["series"][-2][0], "%Y-%m-%d").strftime("%a")
+    p.text((cx0 + 22, sy), f"{abs(diff):.2f} since {prev_day}", body(20), INK)
+    sy += 34
+    sparkline(p, cx0, sy, cx1, 46, [v for _, v in usd["series"]])
+    sy += 46 + 12
+    p.text((cx0, sy), "Euro, pound, yen and more inside", body_it(18), SOFT)
+    sy += 34
+    p.hline(sy, 1, cx0, cx1, MID)
+    return sy + 22
+
+
+def page_money(p, now, n, money):
+    when = datetime.strptime(money["date"], "%Y-%m-%d").strftime("%A, %d %B")
+    y = section_head(p, now, n, "Markets · Indian Rupee", "The Rupee",
+                     f"What each currency cost in rupees at the last fixing, {when}.")
+    rows = money["currencies"]
+    cols = [p.m, p.m + 380, p.m + 600, p.m + 830]          # currency | rupees | change | trend
+    for x, t in zip(cols, ("CURRENCY", "RUPEES", "CHANGE", "LAST 8 TRADING DAYS")):
+        p.text((x, y), t, label(15, 700), SOFT)
+    y += 30
+    p.hline(y, 2)
+    room = p.bottom - 90 - y
+    rh = max(96, min(124, room // max(1, len(rows))))
+    for i, c in enumerate(rows):
+        ry = y + i * rh
+        if ry + rh > p.bottom - 80:
+            break
+        mid = ry + rh // 2
+        unit = f"{c['units']} " if c["units"] != 1 else "1 "
+        p.text((cols[0], mid - 30), c["name"], head(32), BLACK)
+        p.text((cols[0], mid + 10), f"{unit}{c['code']}", label(17, 700), SOFT)
+        p.text((cols[1], mid - 24), f"Rs {c['rate']:.2f}", body(34, 700), BLACK)
+        diff = c["rate"] - c["prev"]
+        pct = diff / c["prev"] * 100 if c["prev"] else 0
+        change_marker(p, cols[2], mid - 18, diff >= 0, 16)
+        p.text((cols[2] + 26, mid - 22), f"{abs(diff):.2f}", body(27, 600), BLACK)
+        p.text((cols[2] + 26, mid + 12), f"{abs(pct):.2f}%", body(20), SOFT)
+        sparkline(p, cols[3], mid - 30, W - p.m, 56, [v for _, v in c["series"]], width=3)
+        p.hline(ry + rh, 1, fill=FAINT)
+    p.para(p.m, p.bottom - 66, "European Central Bank reference rates, fixed around 16:00 CET on working days. "
+           "Change is since the previous fixing; a down arrow means the rupee gained against that currency.",
+           body_it(19), p.cw, 26, SOFT, max_lines=2)
+
+
+# ===== Almanac: day length + moon ==================================================================
+SYNODIC = 29.530588853
+PHASES = [(1.85, "New moon"), (5.54, "Waxing crescent"), (9.23, "First quarter"), (12.92, "Waxing gibbous"),
+          (16.61, "Full moon"), (20.30, "Waning gibbous"), (23.99, "Last quarter"), (27.68, "Waning crescent"),
+          (99, "New moon")]
+
+
+def moon_info(now):
+    """Moon age in days since the last new moon (reference new moon: 6 Jan 2000, 18:14 UTC)."""
+    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
+    age = ((now - ref).total_seconds() / 86400) % SYNODIC
+    illum = (1 - math.cos(2 * math.pi * age / SYNODIC)) / 2
+    name = next(nm for limit, nm in PHASES if age < limit)
+    full = now + timedelta(days=(SYNODIC / 2 - age) % SYNODIC)
+    return age, illum, name, full
+
+
+def draw_moon(p, cx, cy, r, age):
+    """Lit part right while waxing, left while waning; terminator at w*cos(phase angle)."""
+    theta = 2 * math.pi * age / SYNODIC
+    for dy in range(-r, r + 1):
+        w = math.sqrt(max(0, r * r - dy * dy))
+        xt = w * math.cos(theta)
+        p.d.line([(cx - w, cy + dy), (cx + w, cy + dy)], fill=70)            # dark side
+        lit = (xt, w) if age < SYNODIC / 2 else (-w, -xt)
+        if lit[1] > lit[0]:
+            p.d.line([(cx + lit[0], cy + dy), (cx + lit[1], cy + dy)], fill=PAPER)
+    p.d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=BLACK, width=2)
+
+
+def almanac(p, now, w, y):
+    if y + 170 > p.bottom - 6:
+        return
+    p.hline(y - 12, 1, fill=MID)
+    p.tracked((p.m, y), "THE ALMANAC", label(16, 800), 1.6, BLACK)
+    y += 38
+    colw = p.cw / 3
+    sr, ss = (datetime.strptime(t, "%H:%M") for t in (w["sunrise"], w["sunset"]))
+    mins = int((ss - sr).total_seconds() // 60)
+    p.text((p.m, y), "DAY LENGTH", label(15, 700), SOFT)
+    p.text((p.m, y + 24), f"{mins // 60} h {mins % 60:02d} m", head(46), BLACK)
+    p.text((p.m, y + 84), f"Sunrise {w['sunrise']} · Sunset {w['sunset']}", body(20), INK)
+    age, illum, name, full = moon_info(now)
+    mx = p.m + colw + 20
+    draw_moon(p, int(mx + 48), int(y + 56), 48, age)
+    p.text((mx + 116, y), "MOON", label(15, 700), SOFT)
+    p.para(mx + 116, y + 24, name, head(30), colw - 136, 34, BLACK, max_lines=2)
+    p.text((mx + 116, y + 96), f"{illum * 100:.0f}% illuminated", body(20), INK)
+    fx = p.m + 2 * colw + 20
+    p.text((fx, y), "NEXT FULL MOON", label(15, 700), SOFT)
+    days = (full.date() - now.date()).days
+    p.text((fx, y + 24), full.strftime("%a %d %b"), head(40), BLACK)
+    p.text((fx, y + 84), "tonight" if days <= 0 else f"in {days} day{'s' if days != 1 else ''}", body(20), INK)
+    for x in (p.m + colw, p.m + 2 * colw):
+        p.vline(int(x), y - 4, y + 118, 1, FAINT)
+
+
+# ===== Featured article + picture of the day =======================================================
+def page_article(p, now, n, art):
+    y = section_head(p, now, n, "Featured Article · From Wikipedia", art["title"], art.get("description") or None)
+    paras = [t for t in art["paragraphs"] if t]
+
+    def make(sc):
+        f, lead, indent = body(int(26 * sc)), int(37 * sc), int(34 * sc)
+        blocks = []
+        for i, txt in enumerate(paras):
+            if i == 0:   # opens with a drop cap
+                blocks.append(Block(lambda wd, t=txt: p.dropcap_h(t, f, wd, lead),
+                                    lambda x, yy, wd, t=txt: p.dropcap_para(x, yy, t, f, wd, lead)))
+                continue
+
+            def measure(wd, t=txt):
+                return len(p.wrap(t, f, wd, first_width=wd - indent, first_lines=1)) * lead
+
+            def draw(x, yy, wd, t=txt):   # first-line indent, justified: newspaper paragraphs
+                lines = p.wrap(t, f, wd, first_width=wd - indent, first_lines=1)
+                for k, ln in enumerate(lines):
+                    lx, lw = (x + indent, wd - indent) if k == 0 else (x, wd)
+                    p.set_line(lx, yy, ln, f, lw, k < len(lines) - 1, INK)
+                    yy += lead
+            blocks.append(Block(measure, draw))
+        return blocks
+    fit_flow(p, make, p.m, W - p.m, y, p.bottom - 56, ncols=2, gap=10,
+             scales=(1.3, 1.24, 1.18, 1.12, 1.06, 1.0, 0.95, 0.9, 0.85, 0.8))
+    p.centered(p.bottom - 34, "From Wikipedia, the free encyclopedia · CC BY-SA 4.0", body_it(19), SOFT)
+
+
+def halftone(im, cell=7, angle=45):
+    """Newspaper halftone: one dot per cell, dot AREA proportional to darkness, on a grid
+    tilted 45 degrees (the eye notices diagonal patterns least). Drawn 4x oversized, then
+    shrunk, so the dots come out round and smooth."""
+    S = 4
+    im = ImageOps.autocontrast(im.convert("L"), cutoff=1)
+    w0, h0 = im.size
+    big = im.rotate(angle, expand=True, fillcolor=255)
+    grid = big.resize((max(1, big.width // cell), max(1, big.height // cell)), Image.BOX)  # mean per cell
+    dots = Image.new("L", (grid.width * cell * S, grid.height * cell * S), 255)
+    d = ImageDraw.Draw(dots)
+    g = grid.load()
+    half = cell * S / 2
+    for gy in range(grid.height):
+        for gx in range(grid.width):
+            dark = 1 - g[gx, gy] / 255
+            if dark < 0.04:
+                continue
+            r = half * math.sqrt(dark) * 1.2      # area ~ darkness; full black just overlaps
+            cx, cy = (gx + 0.5) * cell * S, (gy + 0.5) * cell * S
+            d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=0)
+    back = dots.rotate(-angle, expand=True, fillcolor=255)
+    bw, bh = back.size
+    left, top = (bw - w0 * S) // 2, (bh - h0 * S) // 2
+    return back.crop((left, top, left + w0 * S, top + h0 * S)).resize((w0, h0), Image.LANCZOS)
+
+
+def page_picture(p, now, n, pic):
+    y = section_head(p, now, n, "Picture of the Day · Wikimedia Commons", pic["title"] or "Picture of the Day")
+    cap_f, cap_lead = body_it(25), 35
+    cap_h = p.para_h(pic.get("caption") or "", cap_f, p.cw, cap_lead, 5)
+    credit_y = p.bottom - 34
+    img_bot = credit_y - cap_h - 70
+    im = Image.open(io.BytesIO(pic["image"]))
+    if im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA")
+        bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+        im = Image.alpha_composite(bg, im)
+    im = im.convert("L")
+    maxw, maxh = p.cw, img_bot - y - 10
+    scale = min(maxw / im.width, maxh / im.height)
+    im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.LANCZOS)
+    ht = halftone(im)
+    x = (W - ht.width) // 2
+    top = y + max(0, (img_bot - y - ht.height) // 2)
+    p.img.paste(ht, (x, top))
+    boxed(p, x - 1, top - 1, x + ht.width, top + ht.height)
+    cy = top + ht.height + 26
+    if pic.get("caption"):
+        p.para(p.m, cy, pic["caption"], cap_f, p.cw, cap_lead, INK, max_lines=5, justify=True)
+    credit = " · ".join(t for t in (f"Photo: {pic['artist']}" if pic.get("artist") else "",
+                                     pic.get("license") or "", "via Wikimedia Commons") if t)
+    p.centered(credit_y, credit, body_it(19), SOFT)
+
+
+
 # ===== Assembly ===================================================================================
 SECTIONS = [  # (data key, index title, renderer)
     ("weather", "Weather", page_weather),
     ("air", "Air Quality", page_air),
     ("news", "News", page_news),
+    ("money", "The Rupee", page_money),
     ("hackernews", "Hacker News", page_hn),
     ("frontend", "Frontend", page_frontend),
     ("github", "Rising on GitHub", page_github),
+    ("article", "Featured Article", page_article),
+    ("picture", "Picture of the Day", page_picture),
     ("onthisday", "On This Day", page_onthisday),
     ("word", "Word of the Day", page_word),
     ("quote", "Quotation", page_quote),
@@ -860,6 +1104,7 @@ def build(data, now):
     page_cover(cover, now, data, contents)
     footer(cover, 1, total)
     pages.append(cover.img)
+    links = [(1,) + link for link in cover.links]
     for i, (key, title, fn) in enumerate(present, start=2):
         pg = Page()
         try:
@@ -872,7 +1117,7 @@ def build(data, now):
                     body_it(34), pg.cw, 48, SOFT)
         footer(pg, i, total)
         pages.append(pg.img)
-    return pages
+    return pages, links
 
 
 def main():
@@ -890,7 +1135,7 @@ def main():
         from sources import fetch_all  # noqa: PLC0415
         data, status = fetch_all(now)
 
-    pages = build(data, now)
+    pages, links = build(data, now)
     out = Path(args.out)
     (out / "pages").mkdir(parents=True, exist_ok=True)
     for old in (out / "pages").glob("page_*.png"):
@@ -901,6 +1146,10 @@ def main():
     title = f"{NAME} — {now:%a %d %b %Y}"
     pages[0].save(out / "today.pdf", save_all=True, append_images=pages[1:], resolution=300.0,
                   title=title, author=NAME)
+    # Tap targets for the Kindle viewer: "page x0 y0 x1 y1 target", in permille of the screen
+    (out / "links.txt").write_text("".join(
+        f"{pg} {round(x0 * 1000 / W)} {round(y0 * 1000 / H)} {round(x1 * 1000 / W)} {round(y1 * 1000 / H)} {t}\n"
+        for pg, x0, y0, x1, y1, t in links))
     (out / "status.json").write_text(json.dumps({
         "printed_at": now.isoformat(timespec="seconds"), "date": now.strftime("%Y-%m-%d"),
         "title": title, "pages": len(pages), "sources": status}, indent=2))
