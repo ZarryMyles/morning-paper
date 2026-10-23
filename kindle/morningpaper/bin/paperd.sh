@@ -5,7 +5,8 @@
 #  * Kindle about to suspend   -> sets the real-time-clock alarm for WAKE_TIME
 #  * alarm wakes the Kindle    -> turns Wi-Fi on, downloads the new edition,
 #                                 draws its front page, restores Wi-Fi, sleeps again
-#  * edition not out yet       -> tries again in 20 minutes (3 tries per morning)
+#  * edition not out yet       -> tries again every 20 minutes for 4 hours
+#                                 (GitHub's scheduled runs are often late)
 #
 # While waiting it blocks on lipc-wait-event, so it uses no CPU.
 . /mnt/us/morningpaper/bin/common.sh
@@ -13,7 +14,7 @@
 PIDFILE="/tmp/morningpaper.paperd.pid"
 TRIES="/tmp/morningpaper.tries"          # "YYYY-MM-DD COUNT": fetch attempts today
 LASTTRY="/tmp/morningpaper.lasttry"      # epoch of the last attempt (throttle)
-MAX_TRIES=3
+MAX_TRIES=13                             # WAKE_TIME, then every 20 min for 4 hours
 RETRY_SECONDS=1200
 WIFI_WAIT=60
 

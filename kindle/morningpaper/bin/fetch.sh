@@ -54,6 +54,12 @@ fetch() {
         log "fetch: GITHUB_REPO is empty in paper.conf"
         cls; say 4 "Set GITHUB_REPO in paper.conf"; return 1
     fi
+    # Already have today's edition? Open it as-is: no network, no download.
+    if [ "$(edition_date)" = "$(date +%Y-%m-%d)" ] && [ -s "$EXT_DIR/pages/page_01.png" ]; then
+        log "fetch: today's edition ($(edition_date)) is already here; opening it"
+        return 0
+    fi
+
     mode="public"; [ -n "$GITHUB_TOKEN" ] && mode="private"
     log "fetch: $mode mode for $GITHUB_REPO"
     cls
@@ -93,8 +99,9 @@ fetch() {
         log "fetch: status.json download FAILED"
     fi
 
-    # 2. The PDF backup: in the background while you read; skipped by the
-    #    morning daemon to keep its wake-up short (the next library tap saves it).
+    # 2. The PDF backup: in the background while you read. Skipped by the morning
+    #    daemon to keep its wake-up short, so it's saved only when the book itself
+    #    downloads the edition.
     [ -z "$QUIET" ] && save_pdf &
 
     if [ "$pages_ok" -eq 0 ]; then

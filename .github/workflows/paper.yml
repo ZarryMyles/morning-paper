@@ -9,9 +9,11 @@ name: Print the paper
 
 on:
   schedule:
-    # 23:23 UTC = 04:53 IST, so the paper is ready before you wake up.
-    # (Off the hour on purpose: GitHub's :00 slots are busiest and run late.)
-    - cron: "23 23 * * *"
+    # GitHub runs scheduled jobs "best effort": during busy periods they can start
+    # hours late, or be skipped. So print twice; the second run just reprints the
+    # same day's paper. Times are UTC, off the hour (the :00 slots are busiest):
+    - cron: "42 21 * * *"    # 03:12 IST
+    - cron: "12 23 * * *"    # 04:42 IST
   workflow_dispatch: {}          # "Run workflow" button for manual editions
   push:
     branches: [main]

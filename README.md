@@ -4,7 +4,7 @@ A personal morning newspaper, printed on a jailbroken Kindle Paperwhite instead 
 Inspired by Karen X. Cheng's newspaper bot.
 
 ```
- GitHub Actions (04:53 IST)          GitHub                       Kindle
+ GitHub Actions (03:12 + 04:42 IST)  GitHub                       Kindle
 ┌─────────────────────────┐   ┌────────────────────┐   ┌──────────────────────────┐
 │ generator/paper.py      │──▶│ "paper" branch     │◀──│ fetch.sh downloads it,   │
 │ renders 14 pages + PDF  │   │ one commit,        │   │ viewer.sh draws pages    │
@@ -37,9 +37,9 @@ python generator/paper.py --out out             # full edition, live data
 3. Copy `kindle/documents/the_myles_times.sh` into the Kindle's **documents** folder.
 4. **Private repo only:** create `morningpaper/paper.local.conf` on the Kindle with
    `GITHUB_TOKEN=github_pat_…` (fine-grained token: this repo only, *Contents: Read-only*).
-5. Eject, then tap **The Myles Times** in your library. It downloads today's edition and
-   opens it; offline, it opens the last edition you downloaded. A PDF copy is also saved
-   to your library.
+5. Eject, then tap **The Myles Times** in your library. If today's edition is already on the
+   Kindle it opens straight away; otherwise it downloads it first (offline, it opens the last
+   edition you downloaded). A PDF copy is also saved to your library.
 
 ### Reading
 Tap the right side (or swipe left) for the next page, tap the left 30% (or swipe right) to go back.
@@ -54,7 +54,7 @@ Tapping the book also starts `bin/paperd.sh`, a small daemon that runs until the
 - Before the Kindle suspends, it sets the real-time-clock alarm for `WAKE_TIME` (default 05:30).
 - When the alarm wakes the Kindle, it turns Wi-Fi on, downloads the new edition, draws its front
   page, and turns Wi-Fi back off if it was off. If GitHub hasn't printed yet, it retries every
-  20 minutes, up to 3 times.
+  20 minutes for 4 hours (GitHub's scheduled runs can start hours late).
 
 Change `WAKE_TIME` or set `AUTO_FETCH=0` in `paper.conf`. After a restart, tap the book once to
 start the daemon again.
