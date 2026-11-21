@@ -1,0 +1,21 @@
+{
+  "printed_at": "2026-11-21T09:27:13+05:30",
+  "date": "2026-11-21",
+  "title": "The Myles Times \u2014 Sat 21 Nov 2026",
+  "pages": 13,
+  "sources": {
+    "weather": "failed: ReadTimeout: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=20)",
+    "air": "ok",
+    "hackernews": "ok",
+    "frontend": "ok",
+    "github": "ok",
+    "news": "ok",
+    "onthisday": "ok",
+    "quote": "ok",
+    "word": "ok",
+    "comic": "ok",
+    "article": "ok",
+    "picture": "ok",
+    "money": "ok"
+  }
+}
